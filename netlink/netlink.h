@@ -163,7 +163,27 @@ inline void handle_msg(Msghdr *msghdr)
 class netlink {
  public:
 
-  void request_route_dump()
+ private:
+
+  uint8_t buf[NETLINK_BUFFER_SIZE]; /* for only recv_msg() */
+  Msghdr* recv_nxt = nullptr;       /* for only recv_msg() */
+  size_t  len;                      /* for only recv_msg() */
+ public:
+
+  Msghdr* recv_msg()
+  {
+    if (recv_nxt == nullptr) {
+      uint8_t* start = buf;
+      len = sock_.recv(start, sizeof(buf)-len, 0);
+      recv_nxt = reinterpret_cast<Msghdr*>(buf);
+    }
+    Msghdr* ret = recv_nxt;
+    recv_nxt = recv_nxt->next(len);
+    if (!recv_nxt->ok(len)) recv_nxt = nullptr;
+    return ret;
+  }
+
+  void dump_fib()
   {
     struct nlrtmsg {
       struct nlmsghdr hdr;
@@ -179,18 +199,12 @@ class netlink {
     req.msg.rtm_table = RT_TABLE_MAIN;
     req.msg.rtm_protocol = RTPROT_UNSPEC;
     sock_.send(&req, req.hdr.nlmsg_len, 0);
-  }
 
-  void dump_fib()
-  {
-    request_route_dump();
-
-    uint8_t buf[NETLINK_BUFFER_SIZE];
-    uint8_t* start = buf;
-
-    size_t len = sock_.recv(start, sizeof(buf)-len, 0);
-    for ( Msghdr* msghdr = reinterpret_cast<Msghdr*>(buf);
-          msghdr->ok(len); msghdr = msghdr->next(len)) {
+    while (Msghdr* msghdr = recv_msg()) {
+      if (msghdr->msg_type() == NLMSG_DONE) {
+        printf("done\n");
+        break;
+      }
 
       depth_fprintf(stdout, "msg : {\n");
       {
