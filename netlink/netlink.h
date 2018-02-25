@@ -28,37 +28,10 @@
 using slankdev::depth_fprintf_pusher;
 using slankdev::depth_fprintf;
 
-struct nlrtmsg {
-  struct nlmsghdr hdr;
-  struct rtmsg msg;
-  uint8_t buf[1024];
-};
-
-
-void netlink_request_route_dump(int nlsock)
-{
-  struct nlrtmsg req;
-
-  /* create request message */
-  memset (&req, 0, sizeof (req));
-  req.hdr.nlmsg_type = RTM_GETROUTE;
-  req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-  req.hdr.nlmsg_len = NLMSG_SPACE (sizeof (req.msg));
-  req.msg.rtm_family = AF_INET;
-  req.msg.rtm_table = RT_TABLE_MAIN;
-  req.msg.rtm_protocol = RTPROT_UNSPEC;
-
-  int ret = send (nlsock, &req, req.hdr.nlmsg_len, 0);
-  if (ret < 0) {
-    printf("fail\n");
-    exit(1);
-  }
-}
-
 
 namespace netlink {
 
-class Rtattr : public ::rtattr {
+class Rtattr : ::rtattr {
  public:
 
   void dump(FILE* fp) const
@@ -82,8 +55,7 @@ class Rtattr : public ::rtattr {
 
 }; /* class Rtattr */
 
-
-class Rtmsg : public ::rtmsg {
+class Rtmsg : ::rtmsg {
  public:
 
   void dump(FILE* fp) const
@@ -101,8 +73,7 @@ class Rtmsg : public ::rtmsg {
 
 }; /* class Rtmsg */
 
-
-class Msghdr : public ::nlmsghdr {
+class Msghdr : ::nlmsghdr {
  public:
   size_t msg_len() const { return this->nlmsg_len; }
   uint32_t msg_type() const { return this->nlmsg_type; }
@@ -143,7 +114,7 @@ class Msghdr : public ::nlmsghdr {
 
 }; /* class msghdr */
 
-void handle_msg_route(Msghdr *hdr)
+inline void handle_msg_route(Msghdr *hdr)
 {
   Rtmsg* msg = reinterpret_cast<Rtmsg*>(hdr->data());
   msg->dump(stdout);
@@ -185,50 +156,34 @@ inline void handle_msg(Msghdr *msghdr)
 
     case NLMSG_DONE : printf("NLMSG_DONE \n"); break;
     case NLMSG_ERROR: printf("NLMSG_ERROR\n"); break;
-    default: printf("unknown(%d)\n", msghdr->nlmsg_type); break;
+    default: printf("unknown(%d)\n", msghdr->msg_type()); break;
   }
 }
 
 class netlink {
  public:
 
-  void read_until_done() // TODO: delete
+  void request_route_dump()
   {
-    int nlsock = sock_.get_fd();
-    char buf[NETLINK_BUFFER_SIZE];
-    memset (buf, 0, sizeof (buf));
-    char* start = buf;
-    int len = 0;
+    struct nlrtmsg {
+      struct nlmsghdr hdr;
+      struct rtmsg msg;
+      uint8_t buf[1024];
+    } req;
 
-    while (true) {
-      size_t recvlen = recv(nlsock, start, sizeof(buf) - len, 0);
-      len += recvlen;
-
-      Msghdr* msghdr = reinterpret_cast<Msghdr*>(buf);
-      for (; msghdr->ok(len); msghdr = msghdr->next(len)) {
-        handle_msg(msghdr);
-      }
-
-      if (len == 0) break;
-      if (len > 0) {
-        printf ("netlink: shifting the data left: %d bytes\n", len);
-        memmove(buf, msghdr, len);
-        start = buf + len;
-      } else start = buf;
-    }
-  }
-
-  void dump_route()
-  {
-    int nlsock = sock_.get_fd();
-    netlink_request_route_dump(nlsock);
-    read_until_done();
+    memset (&req, 0, sizeof (req));
+    req.hdr.nlmsg_type = RTM_GETROUTE;
+    req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
+    req.hdr.nlmsg_len = NLMSG_SPACE (sizeof (req.msg));
+    req.msg.rtm_family = AF_INET;
+    req.msg.rtm_table = RT_TABLE_MAIN;
+    req.msg.rtm_protocol = RTPROT_UNSPEC;
+    sock_.send(&req, req.hdr.nlmsg_len, 0);
   }
 
   void dump_fib()
   {
-    int nlsock = sock_.get_fd();
-    netlink_request_route_dump(nlsock);
+    request_route_dump();
 
     uint8_t buf[NETLINK_BUFFER_SIZE];
     uint8_t* start = buf;
