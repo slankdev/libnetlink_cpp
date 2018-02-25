@@ -13,7 +13,4 @@ all: $(TARGET)
 clean:
 	rm -f *.o *.out
 
-run:
-	./a.out
-
 include $(LIBSLANKDEV)/mk/rules.mk

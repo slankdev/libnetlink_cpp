@@ -21,12 +21,11 @@ inline void print_rtattr(FILE* fp, const struct rtattr* attr)
   fprintf(fp, "\n");
 }
 
-
 inline void print_nlmsghdr(FILE* fp, const struct nlmsghdr* hdr)
 {
   using slankdev::depth_fprintf;
   depth_fprintf(fp, "len  : %u \n", hdr->nlmsg_len  );
-  depth_fprintf(fp, "type : %s(%u)\n", rtm_type2str(hdr->nlmsg_type), hdr->nlmsg_type );
+  depth_fprintf(fp, "type : %s(%u)\n", RTM_2STR(hdr->nlmsg_type), hdr->nlmsg_type );
   depth_fprintf(fp, "flags: %u \n", hdr->nlmsg_flags);
   depth_fprintf(fp, "seq  : %u \n", hdr->nlmsg_seq  );
   depth_fprintf(fp, "pid  : %u \n", hdr->nlmsg_pid  );

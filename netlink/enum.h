@@ -53,7 +53,7 @@ rta_type2str(unsigned short rta_type)
   }
 }
 
-inline const char* rtm_type2str(uint16_t rtm_type)
+inline const char* RTM_2STR(uint16_t rtm_type)
 {
   switch (rtm_type) {
   case RTM_NEWLINK     : return "NEWLINK"     ;

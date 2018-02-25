@@ -6,8 +6,6 @@
 
 int main(int argc, char** argv)
 {
-  netlink::netlink netlink;
-  netlink.dump_fib();
 }
 
 
