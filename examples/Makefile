@@ -14,7 +14,9 @@ endif
 	@echo "CXX $@"
 	@$(CXX) $(CXXFLAGS) $< -o $@ $(LDFLAGS)
 
-SRC = show_fib.cc del_route.cc
+SRC = show_fib.cc \
+			del_route.cc \
+			add_route.cc
 OBJ = $(SRC:.cc=.out)
 
 all: $(OBJ)
