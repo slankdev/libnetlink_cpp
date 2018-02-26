@@ -46,6 +46,17 @@ class Rtattr : ::rtattr {
     return RTA_OK(attr, len);
   }
 
+  uint8_t* data() const
+  {
+    uint8_t* ret = reinterpret_cast<uint8_t*>(RTA_DATA(this));
+    return ret;
+  }
+
+  size_t payload() const { return RTA_PAYLOAD(this); }
+
+  uint32_t type() const { return rta_type; }
+  size_t   len() const { return rta_len; }
+
   Rtattr* next(size_t len) const
   {
     const ::rtattr* attr = reinterpret_cast<const ::rtattr*>(this);
@@ -70,6 +81,16 @@ class Rtmsg : ::rtmsg {
     ::rtattr* attr = RTM_RTA(msg);
     return reinterpret_cast<Rtattr*>(attr);
   }
+
+  uint8_t  family  () const { return rtm_family  ; }
+  uint8_t  dst_len () const { return rtm_dst_len ; }
+  uint8_t  src_len () const { return rtm_src_len ; }
+  uint8_t  tos     () const { return rtm_tos     ; }
+  uint8_t  table   () const { return rtm_table   ; }
+  uint8_t  protocol() const { return rtm_protocol; }
+  uint8_t  scope   () const { return rtm_scope   ; }
+  uint8_t  type    () const { return rtm_type    ; }
+  uint32_t flags   () const { return rtm_flags   ; }
 
 }; /* class Rtmsg */
 
@@ -112,7 +133,79 @@ class Msghdr : ::nlmsghdr {
     print_nlmsghdr(fp, hdr);
   }
 
+  void summary() const
+  {
+    uint32_t type = msg_type();
+    if (type == NLMSG_DONE) {
+      printf("type=NLMSG_DONE\n");
+      return;
+    }
+    if (type == NLMSG_ERROR) {
+      printf("type=NLMSG_ERROR\n");
+      return;
+    }
+
+    printf("[%s] len=%zd ", RTM_2STR(type), msg_len());
+    switch (type) {
+      case RTM_NEWROUTE:
+      case RTM_DELROUTE:
+      {
+        Rtmsg* msg = reinterpret_cast<Rtmsg*>(this->data());
+        printf("(%s)", RTN_2STR(msg->type()));
+        printf("(%s)", RTPROT_2STR(msg->protocol()));
+        printf("\n");
+        slankdev::hexdump(stdout, this, msg_len());
+#if 0
+        int len = this->payload();
+        size_t attr_cnt = 0;
+        for (Rtattr* attr = reinterpret_cast<Rtattr*>(msg->rtm_rta());
+            attr->ok(len); attr=attr->next(len) ) {
+          attr_cnt ++;
+          printf("{");
+          printf("%s:", IFLA_2STR(attr->type()));
+          size_t data_len = attr->len();
+          uint8_t* data_ptr = attr->data();
+          switch (attr->type()) {
+            case IFLA_MTU:
+              printf("%d", *(int*)data_ptr);
+              break;
+            case IFLA_ADDRESS:
+            case IFLA_BROADCAST:
+            {
+              uint8_t* a = (uint8_t*)data_ptr;
+              if (attr->payload() == 6) {
+                printf("%.2x:%.2x:%.2x:%.2x:%.2x:%.2x",
+                  a[0], a[1], a[2], a[3], a[4], a[5]);
+              } else if (attr->payload() == 4) {
+                printf("%d.%d.%d.%d",
+                  a[0], a[1], a[2], a[3]);
+              } else {
+                printf("unknown");
+              }
+              break;
+            }
+            default:
+            {
+              printf("0x");
+              for (size_t i=0; i<data_len; i++)
+                printf("%02x", data_ptr[i]);
+              break;
+            }
+          }
+          printf("},");
+        }
+#endif
+        printf("\n");
+        break;
+      }
+      default:
+        printf("type isn't supported");
+    }
+  }
+
 }; /* class msghdr */
+
+
 
 inline void handle_msg_route(Msghdr *hdr)
 {
@@ -190,7 +283,6 @@ class netlink {
       struct rtmsg msg;
       uint8_t buf[1024];
     } req;
-
     memset (&req, 0, sizeof (req));
     req.hdr.nlmsg_type = RTM_GETROUTE;
     req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
@@ -205,7 +297,9 @@ class netlink {
         printf("done\n");
         break;
       }
-
+#if 1
+      msghdr->summary();
+#else
       depth_fprintf(stdout, "msg : {\n");
       {
         depth_fprintf_pusher p;
@@ -225,7 +319,7 @@ class netlink {
       }
       depth_fprintf(stdout, "}\n");
       depth_fprintf(stdout, "\n");
-
+#endif
     }
   }
 

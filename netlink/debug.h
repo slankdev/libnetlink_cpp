@@ -13,7 +13,7 @@ inline void print_rtattr(FILE* fp, const struct rtattr* attr)
   size_t   data_len = attr->rta_len;
   depth_fprintf(fp, "len : %u\n", attr->rta_len);
   depth_fprintf(fp, "type: %u (%s)\n",
-      attr->rta_type, rta_type2str(attr->rta_type));
+      attr->rta_type, IFLA_2STR(attr->rta_type));
   depth_fprintf(fp, "data: ");
   for (size_t i=0; i<data_len; i++) {
     fprintf(fp, "%02x ", data_ptr[i]);
@@ -41,11 +41,11 @@ inline void print_rtmsg(FILE* fp, const struct rtmsg* msg)
 	depth_fprintf(fp, "tos     : %u \n", msg->rtm_tos     );
 	depth_fprintf(fp, "table   : %u \n", msg->rtm_table   );
 	depth_fprintf(fp, "protocol: %u (%s)\n",
-      msg->rtm_protocol, RTPROTO_2STR(msg->rtm_protocol));
+      msg->rtm_protocol, RTPROT_2STR(msg->rtm_protocol));
 	depth_fprintf(fp, "scope   : %u (%s) \n",
       msg->rtm_scope, RT_SCOPE_2STR(msg->rtm_scope));
 	depth_fprintf(fp, "type    : %u (%s) \n",
-      msg->rtm_type, rtn_type2str(msg->rtm_type));
+      msg->rtm_type, RTN_2STR(msg->rtm_type));
 	depth_fprintf(fp, "flags   : %u \n", msg->rtm_flags   );
 }
 

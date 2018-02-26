@@ -6,7 +6,7 @@
 #include <slankdev/hexdump.h>
 
 inline const char *
-rta_type2str(unsigned short rta_type)
+IFLA_2STR(unsigned short rta_type)
 {
   switch (rta_type) {
   case IFLA_UNSPEC         : return "UNSPEC"         ;
@@ -109,7 +109,7 @@ inline const char* RTM_2STR(uint16_t rtm_type)
 }
 
 
-inline const char* rtn_type2str(uint8_t rtn_type)
+inline const char* RTN_2STR(uint8_t rtn_type)
 {
   switch (rtn_type) {
     case RTN_UNSPEC     : return "UNSPEC"     ;
@@ -140,7 +140,7 @@ inline const char* RT_SCOPE_2STR(uint8_t s)
   }
 }
 
-inline const char* RTPROTO_2STR(size_t val)
+inline const char* RTPROT_2STR(size_t val)
 {
   switch (val) {
     case RTPROT_UNSPEC    : return "UNSPEC"  ;
