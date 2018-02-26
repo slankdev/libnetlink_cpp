@@ -34,6 +34,7 @@ namespace netlink {
 class Rtattr : ::rtattr {
  public:
 
+
   void dump(FILE* fp) const
   {
     const ::rtattr* attr = reinterpret_cast<const ::rtattr*>(this);
@@ -50,6 +51,13 @@ class Rtattr : ::rtattr {
   {
     uint8_t* ret = reinterpret_cast<uint8_t*>(RTA_DATA(this));
     return ret;
+  }
+
+  template <class T>
+  T read_data() const
+  {
+    T* ptr = reinterpret_cast<T*>(data());
+    return *ptr;
   }
 
   size_t payload() const { return RTA_PAYLOAD(this); }
@@ -133,6 +141,7 @@ class Msghdr : ::nlmsghdr {
     print_nlmsghdr(fp, hdr);
   }
 
+#if 0
   void summary() const
   {
     uint32_t type = msg_type();
@@ -202,65 +211,17 @@ class Msghdr : ::nlmsghdr {
         printf("type isn't supported");
     }
   }
+#endif
 
 }; /* class msghdr */
 
 
-
-inline void handle_msg_route(Msghdr *hdr)
-{
-  Rtmsg* msg = reinterpret_cast<Rtmsg*>(hdr->data());
-  msg->dump(stdout);
-
-  int attr_len = hdr->payload();
-  for (Rtattr* attr = reinterpret_cast<Rtattr*>(msg->rtm_rta());
-      attr->ok(attr_len); attr=attr->next(attr_len)) {
-
-    depth_fprintf(stdout, "attr: {\n");
-    {
-      depth_fprintf_pusher p;
-      attr->dump(stdout);
-    }
-    depth_fprintf(stdout, "}\n");
-  }
-}
-
-inline void handle_msg(Msghdr *msghdr)
-{
-  switch (msghdr->msg_type()) {
-
-    case RTM_NEWROUTE:
-    case RTM_DELROUTE:
-      depth_fprintf(stdout, "raw: {\n");
-      {
-        depth_fprintf_pusher p;
-        handle_msg_route(msghdr);
-      }
-      depth_fprintf(stdout, "}\n");
-      break;
-
-    case RTM_NEWADDR:
-    case RTM_DELADDR:
-    case RTM_NEWNEIGH:
-    case RTM_DELNEIGH:
-    case RTM_NEWLINK:
-    case RTM_DELLINK:
-      break; // no support
-
-    case NLMSG_DONE : printf("NLMSG_DONE \n"); break;
-    case NLMSG_ERROR: printf("NLMSG_ERROR\n"); break;
-    default: printf("unknown(%d)\n", msghdr->msg_type()); break;
-  }
-}
-
-class netlink {
- public:
-
+class Netlink {
  private:
-
   uint8_t buf[NETLINK_BUFFER_SIZE]; /* for only recv_msg() */
   Msghdr* recv_nxt = nullptr;       /* for only recv_msg() */
   size_t  len;                      /* for only recv_msg() */
+
  public:
 
   Msghdr* recv_msg()
@@ -276,54 +237,10 @@ class netlink {
     return ret;
   }
 
-  void dump_fib()
-  {
-    struct nlrtmsg {
-      struct nlmsghdr hdr;
-      struct rtmsg msg;
-      uint8_t buf[1024];
-    } req;
-    memset (&req, 0, sizeof (req));
-    req.hdr.nlmsg_type = RTM_GETROUTE;
-    req.hdr.nlmsg_flags = NLM_F_REQUEST | NLM_F_DUMP;
-    req.hdr.nlmsg_len = NLMSG_SPACE (sizeof (req.msg));
-    req.msg.rtm_family = AF_INET;
-    req.msg.rtm_table = RT_TABLE_MAIN;
-    req.msg.rtm_protocol = RTPROT_UNSPEC;
-    sock_.send(&req, req.hdr.nlmsg_len, 0);
+  void send_msg(const void* buf, size_t len)
+  { sock_.send(buf, len, 0); }
 
-    while (Msghdr* msghdr = recv_msg()) {
-      if (msghdr->msg_type() == NLMSG_DONE) {
-        printf("done\n");
-        break;
-      }
-#if 1
-      msghdr->summary();
-#else
-      depth_fprintf(stdout, "msg : {\n");
-      {
-        depth_fprintf_pusher p;
-        depth_fprintf(stdout, "hdr: { \n");
-        {
-          depth_fprintf_pusher p;
-          msghdr->dump(stdout);
-        }
-        depth_fprintf(stdout, "}\n");
-        depth_fprintf(stdout, "len   : %zd\n", len);
-        depth_fprintf(stdout, "data : {\n");
-        {
-          depth_fprintf_pusher p;
-          handle_msg(msghdr);
-        }
-        depth_fprintf(stdout, "}\n");
-      }
-      depth_fprintf(stdout, "}\n");
-      depth_fprintf(stdout, "\n");
-#endif
-    }
-  }
-
-  netlink() { sock_.socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE); }
+  Netlink() { sock_.socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE); }
 
  private:
   slankdev::socketfd sock_;
